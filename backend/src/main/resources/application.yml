@@ -1,0 +1,30 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: teadrink-backend
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/teadrink_system?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8
+    username: root
+    password: lx123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+
+logging:
+  level:
+    com.teadrink.mapper: debug
+
+# 登录成功后浏览器跳转地址（相对路径，与当前访问登录页同源）
+# 与 frontend 目录结构一致：工作台为 html/Mainwindow.html
+app:
+  auth:
+    dashboard-path: /html/Mainwindow.html
+    token-ttl-hours: 168

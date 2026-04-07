@@ -1,0 +1,179 @@
+-- 商品主表（茶饮成品）
+CREATE TABLE `product` (
+                           `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '商品ID',
+                           `name` VARCHAR(50) NOT NULL COMMENT '商品名称',
+                           `category` VARCHAR(20) NOT NULL COMMENT '分类：奶茶/果茶/咖啡/甜品',
+                           `sale_price` DECIMAL(10,2) NOT NULL COMMENT '售价',
+                           `cost_price` DECIMAL(10,2) COMMENT '成本价',
+                           `status` TINYINT DEFAULT 1 COMMENT '状态：1上架 0下架',
+                           `recipe` JSON COMMENT '配方JSON：[{"material_id":1,"quantity":100},...]',
+                           `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                           INDEX `idx_category` (`category`),
+                           INDEX `idx_status` (`status`)
+) ENGINE=InnoDB COMMENT='商品表';
+
+-- 原材料/配料表
+CREATE TABLE `material` (
+                            `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
+                            `name` VARCHAR(50) NOT NULL COMMENT '原料名称',
+                            `unit` VARCHAR(10) NOT NULL COMMENT '单位：ml/g/个/包',
+                            `stock_quantity` DECIMAL(10,2) DEFAULT 0 COMMENT '当前库存',
+                            `safety_stock` DECIMAL(10,2) DEFAULT 100 COMMENT '安全库存阈值',
+                            `status` TINYINT DEFAULT 1 COMMENT '1启用 0停用',
+                            `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                            INDEX `idx_stock_alert` (`stock_quantity`, `safety_stock`)
+) ENGINE=InnoDB COMMENT='原材料表';
+
+-- 采购入库单
+CREATE TABLE `purchase_order` (
+                                  `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
+                                  `order_no` VARCHAR(20) UNIQUE NOT NULL COMMENT '采购单号 CG20240311001',
+                                  `supplier` VARCHAR(50) COMMENT '供应商',
+                                  `total_amount` DECIMAL(10,2) NOT NULL COMMENT '采购总金额',
+                                  `status` TINYINT DEFAULT 0 COMMENT '0待入库 1已入库 2取消',
+                                  `operator` VARCHAR(20) NOT NULL COMMENT '操作人',
+                                  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                  INDEX `idx_order_no` (`order_no`)
+) ENGINE=InnoDB COMMENT='采购订单';
+
+-- 采购明细
+CREATE TABLE `purchase_item` (
+                                 `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
+                                 `purchase_id` BIGINT NOT NULL COMMENT '采购单ID',
+                                 `material_id` BIGINT NOT NULL COMMENT '原料ID',
+                                 `quantity` DECIMAL(10,2) NOT NULL COMMENT '采购数量',
+                                 `unit_price` DECIMAL(10,2) NOT NULL COMMENT '单价',
+                                 `subtotal` DECIMAL(10,2) NOT NULL COMMENT '小计',
+                                 FOREIGN KEY (`purchase_id`) REFERENCES `purchase_order`(`id`),
+                                 FOREIGN KEY (`material_id`) REFERENCES `material`(`id`)
+) ENGINE=InnoDB COMMENT='采购明细';
+
+-- 库存流水（出入库记录）
+CREATE TABLE `inventory_log` (
+                                 `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
+                                 `material_id` BIGINT NOT NULL COMMENT '原料ID',
+                                 `type` TINYINT NOT NULL COMMENT '类型：1采购入库 2销售出库 3盘点调整 4损耗',
+                                 `quantity` DECIMAL(10,2) NOT NULL COMMENT '变动数量（正数入库/负数出库）',
+                                 `before_stock` DECIMAL(10,2) NOT NULL COMMENT '变动前库存',
+                                 `after_stock` DECIMAL(10,2) NOT NULL COMMENT '变动后库存',
+                                 `biz_id` BIGINT COMMENT '关联业务ID（采购单/订单ID）',
+                                 `remark` VARCHAR(100) COMMENT '备注',
+                                 `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                 FOREIGN KEY (`material_id`) REFERENCES `material`(`id`),
+                                 INDEX `idx_material_time` (`material_id`, `created_at`)
+) ENGINE=InnoDB COMMENT='库存流水';
+
+-- 销售订单
+CREATE TABLE `sale_order` (
+                              `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
+                              `order_no` VARCHAR(20) UNIQUE NOT NULL COMMENT '订单号 XS20240311001',
+                              `member_id` BIGINT COMMENT '会员ID（非会员为空）',
+                              `total_amount` DECIMAL(10,2) NOT NULL COMMENT '订单总金额',
+                              `discount_amount` DECIMAL(10,2) DEFAULT 0 COMMENT '优惠金额',
+                              `pay_amount` DECIMAL(10,2) NOT NULL COMMENT '实付金额',
+                              `pay_type` TINYINT NOT NULL COMMENT '支付方式：1现金 2微信 3支付宝 4余额',
+                              `status` TINYINT DEFAULT 1 COMMENT '1完成 0取消',
+                              `cashier` VARCHAR(20) NOT NULL COMMENT '收银员',
+                              `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                              INDEX `idx_order_no` (`order_no`),
+                              INDEX `idx_member_time` (`member_id`, `created_at`),
+                              INDEX `idx_created` (`created_at`)
+) ENGINE=InnoDB COMMENT='销售订单';
+
+-- 订单明细
+CREATE TABLE `sale_item` (
+                             `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
+                             `order_id` BIGINT NOT NULL COMMENT '订单ID',
+                             `product_id` BIGINT NOT NULL COMMENT '商品ID',
+                             `product_name` VARCHAR(50) NOT NULL COMMENT '商品名称（快照）',
+                             `quantity` INT NOT NULL COMMENT '数量',
+                             `unit_price` DECIMAL(10,2) NOT NULL COMMENT '单价',
+                             `subtotal` DECIMAL(10,2) NOT NULL COMMENT '小计',
+                             FOREIGN KEY (`order_id`) REFERENCES `sale_order`(`id`),
+                             FOREIGN KEY (`product_id`) REFERENCES `product`(`id`)
+) ENGINE=InnoDB COMMENT='订单明细';
+
+-- 会员表
+CREATE TABLE `member` (
+                          `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
+                          `phone` VARCHAR(11) UNIQUE NOT NULL COMMENT '手机号',
+                          `name` VARCHAR(20) COMMENT '姓名',
+                          `level` TINYINT DEFAULT 1 COMMENT '等级：1普通 2银卡 3金卡',
+                          `balance` DECIMAL(10,2) DEFAULT 0 COMMENT '储值余额',
+                          `points` INT DEFAULT 0 COMMENT '积分',
+                          `total_consume` DECIMAL(10,2) DEFAULT 0 COMMENT '累计消费',
+                          `status` TINYINT DEFAULT 1 COMMENT '1正常 0冻结',
+                          `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                          INDEX `idx_phone` (`phone`),
+                          INDEX `idx_level` (`level`)
+) ENGINE=InnoDB COMMENT='会员表';
+
+-- 会员交易流水（储值/积分变动）
+CREATE TABLE `member_transaction` (
+                                      `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
+                                      `member_id` BIGINT NOT NULL COMMENT '会员ID',
+                                      `type` TINYINT NOT NULL COMMENT '1充值 2消费扣款 3消费返积分 4积分兑换',
+                                      `amount` DECIMAL(10,2) COMMENT '金额变动（充值+，消费-）',
+                                      `points` INT COMMENT '积分变动',
+                                      `balance_after` DECIMAL(10,2) COMMENT '变动后余额',
+                                      `points_after` INT COMMENT '变动后积分',
+                                      `order_id` BIGINT COMMENT '关联订单ID',
+                                      `remark` VARCHAR(100),
+                                      `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                      FOREIGN KEY (`member_id`) REFERENCES `member`(`id`),
+                                      INDEX `idx_member_time` (`member_id`, `created_at`)
+) ENGINE=InnoDB COMMENT='会员交易记录';
+
+-- 员工/操作员表
+CREATE TABLE `sys_user` (
+                            `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
+                            `username` VARCHAR(20) UNIQUE NOT NULL,
+                            `password` VARCHAR(100) NOT NULL COMMENT '加密密码',
+                            `real_name` VARCHAR(20) NOT NULL,
+                            `role` TINYINT DEFAULT 1 COMMENT '1店员 2店长 3管理员',
+                            `status` TINYINT DEFAULT 1,
+                            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB COMMENT='系统用户';
+
+-- 优惠活动表
+CREATE TABLE `promotion` (
+                             `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
+                             `name` VARCHAR(50) NOT NULL COMMENT '活动名称',
+                             `type` TINYINT NOT NULL COMMENT '1满减 2折扣 3第二杯半价 4会员价',
+                             `rule` JSON NOT NULL COMMENT '规则JSON：如{"full":30,"reduce":5}',
+                             `start_time` TIMESTAMP NOT NULL,
+                             `end_time` TIMESTAMP NOT NULL,
+                             `status` TINYINT DEFAULT 1 COMMENT '1启用 0停用',
+                             INDEX `idx_time` (`start_time`, `end_time`)
+) ENGINE=InnoDB COMMENT='营销活动';
+
+-- 销售日报视图
+CREATE VIEW `v_daily_sales` AS
+SELECT
+    DATE(created_at) as sale_date,
+    COUNT(*) as order_count,
+    SUM(total_amount) as total_amount,
+    SUM(discount_amount) as discount_amount,
+    SUM(pay_amount) as real_income,
+    SUM(CASE WHEN pay_type=1 THEN pay_amount ELSE 0 END) as cash_amount,
+    SUM(CASE WHEN pay_type IN (2,3) THEN pay_amount ELSE 0 END) as mobile_amount,
+    SUM(CASE WHEN member_id IS NOT NULL THEN 1 ELSE 0 END) as member_orders
+FROM sale_order
+WHERE status = 1
+GROUP BY DATE(created_at);
+
+-- 商品销售排行视图
+CREATE VIEW `v_product_rank` AS
+SELECT
+    p.id,
+    p.name,
+    p.category,
+    SUM(si.quantity) as total_sold,
+    SUM(si.subtotal) as total_amount,
+    COUNT(DISTINCT si.order_id) as order_count
+FROM sale_item si
+         JOIN product p ON si.product_id = p.id
+         JOIN sale_order so ON si.order_id = so.id
+WHERE so.status = 1
+GROUP BY p.id, p.name, p.category
+ORDER BY total_sold DESC;

@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>茶饮店管理系统 | 登录</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            overflow: hidden;
+            background-color: #fdf6e3;
+        }
+
+        /* Glassmorphism Card - 调整为暖色调 */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 20px 60px rgba(212, 163, 115, 0.2);
+            transform-style: preserve-3d;
+            transition: transform 0.1s ease;
+        }
+
+        /* 茶饮主题渐变背景 */
+        .blob {
+            position: absolute;
+            filter: blur(80px);
+            z-index: -1;
+            opacity: 0.5;
+            animation: float 10s infinite ease-in-out;
+        }
+        .blob-1 { top: -10%; left: -10%; width: 500px; height: 500px; background: #d4a373; animation-delay: 0s; }
+        .blob-2 { bottom: -10%; right: -10%; width: 400px; height: 400px; background: #ccd5ae; animation-delay: 2s; }
+        .blob-3 { top: 40%; left: 40%; width: 300px; height: 300px; background: #e9edc9; animation-delay: 4s; }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+        }
+
+        /* Input Autofill Fix - 调整为暖色调 */
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover,
+        input:-webkit-autofill:focus,
+        input:-webkit-autofill:active{
+            -webkit-box-shadow: 0 0 0 30px #fefae0 inset !important;
+            -webkit-text-fill-color: #5c4033 !important;
+            transition: background-color 5000s ease-in-out 0s;
+        }
+
+        /* Loader */
+        .loader {
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 3px solid #fff;
+            width: 20px;
+            height: 20px;
+            -webkit-animation: spin 1s linear infinite;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Shake Animation for Error */
+        .shake {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+
+        /* Floating Label Logic - 调整为深棕色 */
+        .floating-input:placeholder-shown + .floating-label {
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1rem;
+            color: #8b7355;
+        }
+        .floating-input:focus + .floating-label,
+        .floating-input:not(:placeholder-shown) + .floating-label {
+            top: -10px;
+            font-size: 0.75rem;
+            color: #d4a373;
+            background-color: #fdf6e3;
+            padding: 0 4px;
+        }
+
+        /* Toast Notification - 调整为暖色调 */
+        .toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 8px;
+            padding: 16px;
+            position: fixed;
+            z-index: 50;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.3s, bottom 0.3s;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .toast.show {
+            visibility: visible;
+            opacity: 1;
+            bottom: 50px;
+        }
+
+        /* Server Status Indicator */
+        .server-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 100;
+            transition: all 0.3s;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* 茶饮店特色装饰 */
+        .tea-leaf {
+            position: absolute;
+            font-size: 24px;
+            color: #d4a373;
+            opacity: 0.3;
+            animation: fall 15s linear infinite;
+        }
+
+        @keyframes fall {
+            0% { transform: translateY(-100px) rotate(0deg); opacity: 0; }
+            10% { opacity: 0.3; }
+            90% { opacity: 0.3; }
+            100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+        }
+    </style>
+</head>
+<body class="h-screen w-full flex items-center justify-center relative selection:bg-amber-500 selection:text-white">
+
+<!-- 装饰性茶叶飘落 -->
+<div class="tea-leaf" style="left: 10%; animation-delay: 0s;">🍃</div>
+<div class="tea-leaf" style="left: 30%; animation-delay: 5s;">🍵</div>
+<div class="tea-leaf" style="left: 50%; animation-delay: 10s;">🌿</div>
+<div class="tea-leaf" style="left: 70%; animation-delay: 3s;">🍃</div>
+<div class="tea-leaf" style="left: 90%; animation-delay: 8s;">🍵</div>
+
+<!-- Background Elements -->
+<div class="blob blob-1 rounded-full"></div>
+<div class="blob blob-2 rounded-full"></div>
+<div class="blob blob-3 rounded-full"></div>
+
+<!-- Canvas for Particle Effect -->
+<canvas id="particleCanvas" class="absolute top-0 left-0 w-full h-full pointer-events-none z-0"></canvas>
+
+<!-- Main Container -->
+<div id="tiltCard" class="glass-card relative z-10 w-full max-w-md p-8 rounded-2xl mx-4">
+
+    <!-- Header -->
+    <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-tr from-amber-400 to-orange-500 mb-4 shadow-lg shadow-orange-500/30">
+            <i class="fas fa-mug-hot text-3xl text-white"></i>
+        </div>
+        <h2 class="text-3xl font-bold text-amber-900 tracking-tight">茶饮店管理系统</h2>
+        <p class="text-amber-700/60 mt-2 text-sm font-medium">会员 · 库存 · 收银 · 报表</p>
+    </div>
+
+    <!-- Form -->
+    <form id="loginForm" class="space-y-6" novalidate>
+
+        <!-- Phone Input -->
+        <div class="relative group">
+            <input type="tel" id="phone" class="floating-input block w-full px-4 py-3 text-amber-900 bg-amber-50/80 border border-amber-200 rounded-lg focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-colors appearance-none placeholder-transparent" placeholder="13800138000" maxlength="11">
+            <label for="phone" class="floating-label absolute left-3 text-amber-700/60 transition-all duration-200 pointer-events-none">手机号码</label>
+            <div class="absolute right-3 top-3.5 text-amber-600/60">
+                <i class="fas fa-mobile-alt"></i>
+            </div>
+        </div>
+
+        <!-- Password Input -->
+        <div class="relative group">
+            <input type="password" id="password" class="floating-input block w-full px-4 py-3 text-amber-900 bg-amber-50/80 border border-amber-200 rounded-lg focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-colors appearance-none placeholder-transparent" placeholder="Password">
+            <label for="password" class="floating-label absolute left-3 text-amber-700/60 transition-all duration-200 pointer-events-none">登录密码</label>
+            <button type="button" id="togglePassword" class="absolute right-3 top-3.5 text-amber-600/60 hover:text-amber-500 transition-colors focus:outline-none">
+                <i class="fas fa-eye"></i>
+            </button>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" id="submitBtn" class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 focus:ring-offset-amber-50 transition-all transform hover:scale-[1.02] active:scale-[0.98]">
+            <span id="btnText">立即登录</span>
+            <div id="btnLoader" class="loader hidden"></div>
+        </button>
+    </form>
+
+    <!-- Footer -->
+    <p class="mt-6 text-center text-sm text-amber-700/60">
+        还没有账号?
+        <a href="/html/Register.html" class="font-medium text-amber-600 hover:text-amber-700 transition-colors">立即注册</a>
+    </p>
+</div>
+
+<!-- Toast Notification -->
+<div id="toast" class="toast flex items-center justify-center gap-3">
+    <i id="toastIcon" class="fas fa-check-circle text-green-400 text-xl"></i>
+    <span id="toastMessage">Operation Successful</span>
+</div>
+
+<script>
+    // ==========================================
+    // 后端服务器连接配置
+    // ==========================================
+    const SERVER_CONFIG = {
+        BASE_URL: '',                        // 同源：由 Nginx 统一提供前端与 /api 反代
+        LOGIN_ENDPOINT: '/api/login',        // 登录接口路径
+        TIMEOUT: 5000,                       // 请求超时时间(毫秒)
+        RETRY_ATTEMPTS: 3                    // 重试次数
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const card = document.getElementById('tiltCard');
+        const form = document.getElementById('loginForm');
+        const phoneInput = document.getElementById('phone');
+        const passwordInput = document.getElementById('password');
+        const togglePasswordBtn = document.getElementById('togglePassword');
+        const submitBtn = document.getElementById('submitBtn');
+        const btnText = document.getElementById('btnText');
+        const btnLoader = document.getElementById('btnLoader');
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toastMessage');
+        const toastIcon = document.getElementById('toastIcon');
+
+        // ==========================================
+        // 1. 3D Tilt Effect
+        // ==========================================
+        document.addEventListener('mousemove', (e) => {
+            if (window.innerWidth < 768) return;
+
+            const xAxis = (window.innerWidth / 2 - e.pageX) / 25;
+            const yAxis = (window.innerHeight / 2 - e.pageY) / 25;
+
+            card.style.transform = `rotateY(${xAxis}deg) rotateX(${yAxis}deg)`;
+        });
+
+        document.addEventListener('mouseleave', () => {
+            card.style.transform = `rotateY(0deg) rotateX(0deg)`;
+        });
+
+        // ==========================================
+        // 2. Password Visibility Toggle
+        // ==========================================
+        togglePasswordBtn.addEventListener('click', () => {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+
+            const icon = togglePasswordBtn.querySelector('i');
+            icon.classList.toggle('fa-eye');
+            icon.classList.toggle('fa-eye-slash');
+        });
+
+        // ==========================================
+        // 3. Phone Number Input Restriction
+        // ==========================================
+        phoneInput.addEventListener('input', (e) => {
+            e.target.value = e.target.value.replace(/\D/g, '');
+        });
+
+        // ==========================================
+        // 4. 发送登录请求
+        // ==========================================
+        async function sendLoginRequest(phone, password) {
+            const requestUrl = `${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.LOGIN_ENDPOINT}`;
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), SERVER_CONFIG.TIMEOUT);
+
+            try {
+                const response = await fetch(requestUrl, {
+                    method: 'POST',
+                    mode: 'cors',
+                    cache: 'no-cache',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    signal: controller.signal,
+                    body: JSON.stringify({
+                        phone: phone,
+                        password: password
+                    })
+                });
+
+                clearTimeout(timeoutId);
+
+                const data = await response.json();
+
+                // 保存 token（备用）
+                if (data.success && data.token) {
+                    localStorage.setItem('token', data.token);
+                }
+
+                return {
+                    success: response.ok && data.success,
+                    data: data
+                };
+
+            } catch (error) {
+                clearTimeout(timeoutId);
+                throw error;
+            }
+        }
+
+        // ==========================================
+        // 5. Form Handling（关键修改：直接跳转，无需处理 token）
+        // ==========================================
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // 重置错误样式
+            phoneInput.classList.remove('border-red-500');
+            passwordInput.classList.remove('border-red-500');
+
+            const phone = phoneInput.value.trim();
+            const password = passwordInput.value;
+
+            let isValid = true;
+            const phoneRegex = /^1[3-9]\d{9}$/;
+
+            if (!phoneRegex.test(phone)) {
+                phoneInput.classList.add('border-red-500');
+                isValid = false;
+            }
+            if (!password || password.length < 6) {
+                passwordInput.classList.add('border-red-500');
+                isValid = false;
+            }
+
+            if (!isValid) {
+                card.classList.add('shake');
+                showToast('请检查手机号和密码', 'error');
+                setTimeout(() => card.classList.remove('shake'), 500);
+                return;
+            }
+
+            setLoading(true);
+
+            try {
+                const result = await sendLoginRequest(phone, password);
+
+                if (result.success) {
+                    // ========== 关键修改：直接跳转到后端返回的 URL（已带 token）==========
+                    showToast(result.data.msg || '登录成功', 'success');
+
+                    setTimeout(() => {
+                        // redirectUrl 已经是 /api/dashboard?token=xxx
+                        window.location.href = result.data.redirectUrl;
+                    }, 500);
+                } else {
+                    showToast(result.data.msg || '登录失败', 'error');
+                }
+
+            } catch (error) {
+                showToast(error.message || '网络错误，请稍后重试', 'error');
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        function setLoading(isLoading) {
+            if (isLoading) {
+                submitBtn.disabled = true;
+                btnText.classList.add('hidden');
+                btnLoader.classList.remove('hidden');
+                submitBtn.classList.add('cursor-not-allowed', 'opacity-80');
+            } else {
+                submitBtn.disabled = false;
+                btnText.classList.remove('hidden');
+                btnLoader.classList.add('hidden');
+                submitBtn.classList.remove('cursor-not-allowed', 'opacity-80');
+            }
+        }
+
+        function showToast(msg, type) {
+            toastMessage.textContent = msg;
+
+            if (type === 'error') {
+                toastIcon.className = 'fas fa-exclamation-circle text-red-400 text-xl';
+                toast.style.backgroundColor = '#450a0a';
+                toast.style.border = '1px solid #ef4444';
+            } else {
+                toastIcon.className = 'fas fa-check-circle text-green-400 text-xl';
+                toast.style.backgroundColor = '#064e3b';
+                toast.style.border = '1px solid #10b981';
+            }
+
+            toast.classList.add('show');
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // ==========================================
+        // 6. Particle Background System
+        // ==========================================
+        const canvas = document.getElementById('particleCanvas');
+        const ctx = canvas.getContext('2d');
+        let particlesArray;
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.directionX = (Math.random() * 0.4) - 0.2;
+                this.directionY = (Math.random() * 0.4) - 0.2;
+                this.size = Math.random() * 2;
+                this.color = 'rgba(212, 163, 115, 0.4)';
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2, false);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+            }
+            update() {
+                if (this.x > canvas.width || this.x < 0) {
+                    this.directionX = -this.directionX;
+                }
+                if (this.y > canvas.height || this.y < 0) {
+                    this.directionY = -this.directionY;
+                }
+                this.x += this.directionX;
+                this.y += this.directionY;
+                this.draw();
+            }
+        }
+
+        function initParticles() {
+            particlesArray = [];
+            let numberOfParticles = (canvas.height * canvas.width) / 15000;
+            for (let i = 0; i < numberOfParticles; i++) {
+                particlesArray.push(new Particle());
+            }
+        }
+
+        function animateParticles() {
+            requestAnimationFrame(animateParticles);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let i = 0; i < particlesArray.length; i++) {
+                particlesArray[i].update();
+            }
+            connectParticles();
+        }
+
+        function connectParticles() {
+            let opacityValue = 1;
+            for (let a = 0; a < particlesArray.length; a++) {
+                for (let b = a; b < particlesArray.length; b++) {
+                    let distance = ((particlesArray[a].x - particlesArray[b].x) * (particlesArray[a].x - particlesArray[b].x))
+                        + ((particlesArray[a].y - particlesArray[b].y) * (particlesArray[a].y - particlesArray[b].y));
+                    if (distance < (canvas.width/7) * (canvas.height/7)) {
+                        opacityValue = 1 - (distance/20000);
+                        ctx.strokeStyle = 'rgba(212, 163, 115,' + opacityValue + ')';
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(particlesArray[a].x, particlesArray[a].y);
+                        ctx.lineTo(particlesArray[b].x, particlesArray[b].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            initParticles();
+        });
+
+        initParticles();
+        animateParticles();
+    });
+</script>
+</body>
+</html>

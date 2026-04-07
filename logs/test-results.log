@@ -1,0 +1,4 @@
+# 自动化测试结果日志（由 JUnit / 前端测试 运行时追加）
+# 格式建议：时间 | 用例标识 | 通过/失败 | 耗时(ms) | 备注/异常摘要
+# 示例：2025-03-12 14:30:00 | OrderServiceTest#createOrder | PASS | 120 |
+# 示例：2025-03-12 14:30:01 | OrderServiceTest#createOrder_insufficientStock | FAIL | 15 | 预期抛出 InsufficientStockException

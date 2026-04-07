@@ -1,0 +1,2 @@
+# 保留 logs 目录，便于版本控制
+# 测试记录.md 与 test-results.log 等可提交；若日志过大可将 *.log 加入 .gitignore
