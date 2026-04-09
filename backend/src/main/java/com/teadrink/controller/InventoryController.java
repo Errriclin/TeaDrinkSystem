@@ -1,13 +1,18 @@
 package com.teadrink.controller;
 
 import com.teadrink.common.Result;
+import com.teadrink.dto.StockAdjustRequest;
 import com.teadrink.service.InventoryService;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
+import javax.validation.Valid;
 import java.util.List;
 import java.util.Map;
 
@@ -34,6 +39,17 @@ public class InventoryController {
     @GetMapping("/inventory_log/recent")
     public Result<List<Map<String, Object>>> recentLogs(@RequestParam(required = false, defaultValue = "10") int limit) {
         return Result.ok(inventoryService.recentLogs(limit));
+    }
+
+    /**
+     * 库存盘点调整（增减）
+     * POST /api/material/{id}/adjust
+     */
+    @PostMapping("/material/{id}/adjust")
+    public Result<Void> adjust(@PathVariable("id") Long materialId,
+                               @Valid @RequestBody StockAdjustRequest request) {
+        inventoryService.adjustStock(materialId, request.getDeltaQty(), request.getRemark());
+        return Result.ok(null);
     }
 }
 

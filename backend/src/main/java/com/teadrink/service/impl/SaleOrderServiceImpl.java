@@ -265,11 +265,18 @@ public class SaleOrderServiceImpl implements SaleOrderService {
     private Map<Long, BigDecimal> calcMaterialConsume(List<SaleOrderCreateRequestItem> items) {
         Map<Long, BigDecimal> consumeMap = new HashMap<>();
         for (SaleOrderCreateRequestItem it : items) {
+            if (it.getProductId() == null || it.getQuantity() == null || it.getQuantity() <= 0) {
+                continue;
+            }
             LambdaQueryWrapper<ProductMaterial> q = new LambdaQueryWrapper<>();
             q.eq(ProductMaterial::getProductId, it.getProductId());
             List<ProductMaterial> pms = productMaterialMapper.selectList(q);
             if (pms == null || pms.isEmpty()) {
-                continue; // 没有配方就不扣原料（演示项目允许）
+                String productName = it.getProductName() == null ? "" : it.getProductName().trim();
+                if (productName.isEmpty()) {
+                    productName = "ID=" + it.getProductId();
+                }
+                throw new BusinessException("商品未配置配方，无法下单：" + productName);
             }
             for (ProductMaterial pm : pms) {
                 if (pm.getMaterialId() == null || pm.getConsumeQty() == null) {

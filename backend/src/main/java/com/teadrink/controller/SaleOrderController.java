@@ -47,8 +47,9 @@ public class SaleOrderController {
      */
     @GetMapping("/sale_order/list")
     public Result<Map<String, Object>> list(@RequestParam(defaultValue = "1") int page,
-                                           @RequestParam(defaultValue = "20") int size) {
-        return Result.ok(saleOrderManageService.page(page, size));
+                                           @RequestParam(defaultValue = "20") int size,
+                                           @RequestParam(required = false, defaultValue = "all") String dateType) {
+        return Result.ok(saleOrderManageService.page(page, size, dateType));
     }
 
     /**

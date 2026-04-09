@@ -5,6 +5,7 @@ import com.teadrink.common.BusinessException;
 import com.teadrink.dto.PurchaseCreateRequest;
 import com.teadrink.dto.PurchaseCreateRequestItem;
 import com.teadrink.entity.InventoryLog;
+import com.teadrink.entity.Material;
 import com.teadrink.entity.PurchaseOrder;
 import com.teadrink.entity.PurchaseOrderItem;
 import com.teadrink.mapper.InventoryLogMapper;
@@ -60,12 +61,13 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         purchaseOrderMapper.insert(po);
 
         for (PurchaseCreateRequestItem it : request.getItems()) {
-            if (it.getMaterialId() == null || it.getQuantity() == null || it.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+            if (it.getQuantity() == null || it.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new BusinessException("采购明细参数不合法");
             }
+            Long materialId = resolveMaterialId(it);
             PurchaseOrderItem item = new PurchaseOrderItem();
             item.setPurchaseOrderId(po.getId());
-            item.setMaterialId(it.getMaterialId());
+            item.setMaterialId(materialId);
             item.setQuantity(it.getQuantity());
             item.setUnitPrice(it.getUnitPrice() == null ? BigDecimal.ZERO : it.getUnitPrice());
             item.setSubtotal(it.getSubtotal() == null ? BigDecimal.ZERO : it.getSubtotal());
@@ -137,6 +139,48 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
         int rnd = ThreadLocalRandom.current().nextInt(1000, 10000);
         return "PO" + ts + rnd;
+    }
+
+    /**
+     * 优先使用已选原料 ID；否则用手动输入的名称（匹配或新建原料）。
+     */
+    private Long resolveMaterialId(PurchaseCreateRequestItem it) {
+        if (it.getMaterialId() != null && it.getMaterialId() > 0) {
+            Material byId = materialMapper.selectById(it.getMaterialId());
+            if (byId == null) {
+                throw new BusinessException("原料不存在: id=" + it.getMaterialId());
+            }
+            return it.getMaterialId();
+        }
+        String name = it.getMaterialName() == null ? "" : it.getMaterialName().trim();
+        String unit = it.getMaterialUnit() == null ? "" : it.getMaterialUnit().trim();
+        if (name.isEmpty()) {
+            throw new BusinessException("请选择原料或填写原料名称");
+        }
+        if (name.length() > 100) {
+            throw new BusinessException("原料名称过长");
+        }
+        if (unit.length() > 16) {
+            throw new BusinessException("原料单位过长");
+        }
+        LambdaQueryWrapper<Material> q = new LambdaQueryWrapper<>();
+        q.eq(Material::getName, name).last("LIMIT 1");
+        Material existing = materialMapper.selectOne(q);
+        if (existing != null) {
+            return existing.getId();
+        }
+        if (unit.isEmpty()) {
+            throw new BusinessException("手动新增原料时请填写单位");
+        }
+        Material m = new Material();
+        m.setName(name);
+        m.setUnit(unit);
+        m.setStockQuantity(BigDecimal.ZERO);
+        m.setSafetyStock(BigDecimal.ZERO);
+        m.setStatus(1);
+        m.setUpdatedAt(LocalDateTime.now());
+        materialMapper.insert(m);
+        return m.getId();
     }
 }
 

@@ -17,21 +17,26 @@ public class SaleOrderManageServiceImpl implements SaleOrderManageService {
     private SaleOrderManageMapper saleOrderManageMapper;
 
     @Override
-    public Map<String, Object> page(int page, int size) {
+    public Map<String, Object> page(int page, int size, String dateType) {
         int safeSize = size <= 0 ? 20 : Math.min(size, 50);
         int safePage = page <= 0 ? 1 : page;
+        String safeDateType = "all";
+        if ("today".equalsIgnoreCase(dateType) || "week".equalsIgnoreCase(dateType)) {
+            safeDateType = dateType.toLowerCase();
+        }
 
-        long total = nvlLong(saleOrderManageMapper.countAll());
+        long total = nvlLong(saleOrderManageMapper.countByDateType(safeDateType));
         int pages = (int) ((total + safeSize - 1) / safeSize);
         int offset = (safePage - 1) * safeSize;
 
-        List<Map<String, Object>> list = saleOrderManageMapper.listPage(offset, safeSize);
+        List<Map<String, Object>> list = saleOrderManageMapper.listPageByDateType(offset, safeSize, safeDateType);
 
         Map<String, Object> res = new HashMap<>();
         res.put("total", total);
         res.put("list", list);
         res.put("page", safePage);
         res.put("size", safeSize);
+        res.put("dateType", safeDateType);
         res.put("pages", Math.max(pages, 1));
         return res;
     }

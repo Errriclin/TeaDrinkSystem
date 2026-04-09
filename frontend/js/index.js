@@ -19,6 +19,8 @@ let pendingRequests = new Set();
 let loadingStates = new Map();
 let tabSwitchTimer = null;
 let currentTab = null;
+let currentOrderFilter = 'all';
+let currentAdjustMaterialId = null;
 
 function getToken() {
     // 先检查 localStorage
@@ -197,7 +199,7 @@ function initDashboard() {
     document.getElementById('currentDate').textContent = dateStr;
     document.getElementById('purchaseDate').valueAsDate = new Date();
 
-    //loadDashboardData(); // 里面会调用 loadRevenueChart
+    loadDashboardData();
 }
 
 async function loadDashboardData(signal = null) {
@@ -881,28 +883,29 @@ async function submitOrder() {
             method: 'POST',
             body: JSON.stringify(orderData)
         });
+        if (!response) return;
 
-        if (response.ok) {
-            const result = await response.json();
-            showToast('订单提交成功', 'success');
-
-            // 清空购物车
-            cart = [];
-            currentMember = null;
-            currentPayType = null;
-            document.getElementById('posMemberInfo').classList.add('hidden');
-            document.getElementById('posMemberPhone').value = '';
-            document.querySelectorAll('.pay-type-btn').forEach(btn => {
-                btn.classList.remove('bg-amber-500', 'text-white', 'border-amber-500');
-                btn.classList.add('text-amber-700', 'border-amber-200');
-            });
-            updateCart();
-            renderProducts(products);
-        } else {
-            throw new Error('提交失败');
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.msg || '下单失败');
         }
+
+        showToast('订单提交成功', 'success');
+
+        cart = [];
+        currentMember = null;
+        currentPayType = null;
+        document.getElementById('posMemberInfo').classList.add('hidden');
+        document.getElementById('posMemberPhone').value = '';
+        document.querySelectorAll('.pay-type-btn').forEach(btn => {
+            btn.classList.remove('bg-amber-500', 'text-white', 'border-amber-500');
+            btn.classList.add('text-amber-700', 'border-amber-200');
+        });
+        updateCart();
+        renderProducts(products);
     } catch (error) {
         console.error('提交订单失败:', error);
+        showToast('下单失败: ' + (error.message || '未知错误'), 'error');
     }
 }
 
@@ -915,7 +918,7 @@ async function loadOrdersData(page = 1,signal = null) {
 
         // 使用 fetchWithToken
         const response = await fetchWithToken(
-            `${API_BASE_URL}/api/sale_order/list?page=${page}&size=${pageSize}`
+            `${API_BASE_URL}/api/sale_order/list?page=${page}&size=${pageSize}&dateType=${currentOrderFilter}`
             , { signal }
         );
         if(!response) return;
@@ -1296,20 +1299,43 @@ async function submitPurchase() {
     }
 
     const items = [];
+    let manualUnitMissing = false;
     document.querySelectorAll('.purchase-item').forEach(item => {
         const materialId = item.querySelector('.purchase-material').value;
+        const materialNameInput = item.querySelector('.purchase-material-name');
+        const materialName = materialNameInput ? (materialNameInput.value || '').trim() : '';
+        const materialUnitInput = item.querySelector('.purchase-material-unit');
+        const materialUnit = materialUnitInput ? (materialUnitInput.value || '').trim() : '';
         const qty = parseFloat(item.querySelector('.purchase-qty').value);
         const price = parseFloat(item.querySelector('.purchase-price').value);
 
-        if (materialId && qty && price) {
+        if (!(qty > 0) || !(price >= 0)) return;
+        if (materialId) {
             items.push({
-                material_id: parseInt(materialId),
+                material_id: parseInt(materialId, 10),
+                quantity: qty,
+                unit_price: price,
+                subtotal: qty * price
+            });
+        } else if (materialName) {
+            if (!materialUnit) {
+                manualUnitMissing = true;
+                return;
+            }
+            items.push({
+                material_name: materialName,
+                material_unit: materialUnit,
                 quantity: qty,
                 unit_price: price,
                 subtotal: qty * price
             });
         }
     });
+
+    if (manualUnitMissing) {
+        showToast('手动输入原料名称时，请同时填写单位', 'error');
+        return;
+    }
 
     if (items.length === 0) {
         showToast('请添加采购原料', 'error');
@@ -1368,6 +1394,7 @@ async function loadReportsData(signal = null) {
     } catch(error) {
         if (error.name === 'AbortError') return;
         console.error('加载报表失败:', error);
+        showToast('加载报表失败: ' + (error.message || ''), 'error');
     }
 }
 
@@ -1539,14 +1566,14 @@ async function submitNewProduct() {
                 category,
                 product_tag: productTag,
                 sale_price: salePrice,
-                status: 1
+                status: 0
             })
         });
         if (!response) return;
         const result = await response.json();
         if (!result.success) throw new Error(result.msg || '新增失败');
 
-        showToast('商品添加成功', 'success');
+        showToast('商品添加成功，默认下架，请在商品管理中「配置配方」后再上架', 'success');
         closeProductModal();
         loadPosData();
         if (!document.getElementById('productManage').classList.contains('hidden')) {
@@ -1603,6 +1630,7 @@ async function loadProductManageData(signal = null) {
                     <span class="status-badge ${p.status === 1 ? 'status-success' : 'status-danger'}">${p.status === 1 ? '上架' : '下架'}</span>
                 </td>
                 <td class="py-3 px-6">
+                    <button type="button" onclick="openProductRecipeModal(${p.id}, '${(p.name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')" class="text-blue-600 hover:text-blue-800 text-sm font-medium mr-3">配置配方</button>
                     ${p.status === 1
                         ? `<button onclick="updateProductStatus(${p.id},0)" class="text-amber-600 hover:text-amber-800 text-sm font-medium mr-3">下架</button>`
                         : `<button onclick="updateProductStatus(${p.id},1)" class="text-green-600 hover:text-green-800 text-sm font-medium mr-3">上架</button>`
@@ -1635,6 +1663,122 @@ async function updateProductStatus(productId, status) {
     } catch (error) {
         console.error('更新商品状态失败:', error);
         showToast('操作失败: ' + (error.message || ''), 'error');
+    }
+}
+
+let productRecipeMaterialOptionsHtml = '';
+
+function openProductRecipeModal(productId, productName) {
+    document.getElementById('productRecipeProductId').value = String(productId);
+    document.getElementById('productRecipeTitleName').textContent = productName || ('#' + productId);
+    document.getElementById('productRecipeModal').classList.remove('hidden');
+    setTimeout(() => {
+        document.getElementById('productRecipeModalContent').classList.remove('scale-95', 'opacity-0');
+        document.getElementById('productRecipeModalContent').classList.add('scale-100', 'opacity-100');
+    }, 10);
+    loadProductRecipeEditor(productId);
+}
+
+function closeProductRecipeModal() {
+    const content = document.getElementById('productRecipeModalContent');
+    content.classList.remove('scale-100', 'opacity-100');
+    content.classList.add('scale-95', 'opacity-0');
+    setTimeout(() => {
+        document.getElementById('productRecipeModal').classList.add('hidden');
+        document.getElementById('productRecipeRows').innerHTML = '';
+        document.getElementById('productRecipeProductId').value = '';
+    }, 300);
+}
+
+async function loadProductRecipeEditor(productId) {
+    const rowsEl = document.getElementById('productRecipeRows');
+    rowsEl.innerHTML = '<div class="text-sm text-amber-600 py-2">加载中…</div>';
+    try {
+        const matRes = await fetchWithToken(`${API_BASE_URL}/api/material/list`);
+        if (!matRes) return;
+        const matJson = await matRes.json();
+        if (!matJson.success) throw new Error(matJson.msg || '加载原料失败');
+        const materials = matJson.data || [];
+        productRecipeMaterialOptionsHtml = '<option value="">选择原料</option>' +
+            materials.map(m => `<option value="${m.id}">${m.name} (${m.unit})</option>`).join('');
+
+        const recRes = await fetchWithToken(`${API_BASE_URL}/api/product/${productId}/recipe`);
+        if (!recRes) return;
+        const recJson = await recRes.json();
+        if (!recJson.success) throw new Error(recJson.msg || '加载配方失败');
+        const lines = recJson.data || [];
+        rowsEl.innerHTML = '';
+        if (lines.length === 0) {
+            addProductRecipeRow();
+        } else {
+            lines.forEach(line => addProductRecipeRow(line.material_id, line.consume_qty));
+        }
+    } catch (e) {
+        console.error(e);
+        rowsEl.innerHTML = '<div class="text-sm text-red-500 py-2">加载失败</div>';
+        showToast(e.message || '加载失败', 'error');
+    }
+}
+
+function addProductRecipeRow(materialId, consumeQty) {
+    const rowsEl = document.getElementById('productRecipeRows');
+    const row = document.createElement('div');
+    row.className = 'flex gap-2 items-center recipe-row flex-wrap';
+    const mid = materialId != null && materialId !== '' ? String(materialId) : '';
+    const qty = consumeQty != null && consumeQty !== '' ? String(consumeQty) : '';
+    row.innerHTML = `
+        <select aria-label="原料" class="recipe-material flex-1 min-w-[140px] px-3 py-2 rounded-lg border border-amber-200 text-sm focus:outline-none focus:border-amber-500">${productRecipeMaterialOptionsHtml || '<option value="">选择原料</option>'}</select>
+        <input type="number" aria-label="每份消耗" class="recipe-consume w-28 px-3 py-2 rounded-lg border border-amber-200 text-sm focus:outline-none focus:border-amber-500" placeholder="消耗量" min="0.001" step="0.001" value="${qty}">
+        <button type="button" onclick="removeProductRecipeRow(this)" title="删除此行" class="text-red-500 hover:text-red-700 p-2"><i class="fas fa-trash"></i></button>
+    `;
+    rowsEl.appendChild(row);
+    const sel = row.querySelector('.recipe-material');
+    if (sel && mid) sel.value = mid;
+}
+
+function removeProductRecipeRow(btn) {
+    const row = btn.closest('.recipe-row');
+    if (row) row.remove();
+    const rowsEl = document.getElementById('productRecipeRows');
+    if (rowsEl && rowsEl.querySelectorAll('.recipe-row').length === 0) {
+        addProductRecipeRow();
+    }
+}
+
+async function saveProductRecipe() {
+    const productId = document.getElementById('productRecipeProductId').value;
+    if (!productId) return;
+    const items = [];
+    const seen = new Set();
+    for (const row of document.querySelectorAll('#productRecipeRows .recipe-row')) {
+        const mid = row.querySelector('.recipe-material').value;
+        const qty = parseFloat(row.querySelector('.recipe-consume').value);
+        if (!mid) continue;
+        if (!(qty > 0)) continue;
+        const idNum = parseInt(mid, 10);
+        if (seen.has(idNum)) {
+            showToast('同一原料不能重复添加', 'error');
+            return;
+        }
+        seen.add(idNum);
+        items.push({ material_id: idNum, consume_qty: qty });
+    }
+    if (items.length === 0) {
+        if (!confirm('未填写有效配方行，保存后将清空该商品配方。确定吗？')) return;
+    }
+    try {
+        const response = await fetchWithToken(`${API_BASE_URL}/api/product/${productId}/recipe`, {
+            method: 'PUT',
+            body: JSON.stringify({ items })
+        });
+        if (!response) return;
+        const result = await response.json();
+        if (!result.success) throw new Error(result.msg || '保存失败');
+        showToast('配方已保存', 'success');
+        closeProductRecipeModal();
+    } catch (error) {
+        console.error('保存配方失败:', error);
+        showToast('保存失败: ' + (error.message || ''), 'error');
     }
 }
 
@@ -1678,10 +1822,12 @@ function addPurchaseItem() {
     const newItem = document.createElement('div');
     newItem.className = 'flex gap-3 items-end purchase-item';
     newItem.innerHTML = `
-                <div class="flex-1">
+                <div class="flex-1 min-w-0">
                     <select class="w-full px-4 py-2 rounded-lg border border-amber-200 focus:outline-none focus:border-amber-500 purchase-material">
                         <option value="">选择原料</option>
                     </select>
+                    <input type="text" class="mt-1 w-full px-3 py-1.5 text-sm rounded-lg border border-amber-100 focus:outline-none focus:border-amber-400 purchase-material-name" placeholder="无选项时可手动输入名称（新建原料）" autocomplete="off">
+                    <input type="text" class="mt-1 w-full px-3 py-1.5 text-sm rounded-lg border border-amber-100 focus:outline-none focus:border-amber-400 purchase-material-unit" placeholder="手动单位，如 g / ml / 包" autocomplete="off">
                 </div>
                 <div class="w-24">
                     <input type="number" class="w-full px-4 py-2 rounded-lg border border-amber-200 focus:outline-none focus:border-amber-500 purchase-qty" placeholder="0" min="1">
@@ -1713,7 +1859,34 @@ function calculatePurchaseTotal() {
 }
 
 function setupEventListeners() {
-    document.getElementById('purchaseItems').addEventListener('input', calculatePurchaseTotal);
+    const purchaseItemsEl = document.getElementById('purchaseItems');
+    purchaseItemsEl.addEventListener('input', (e) => {
+        if (e.target.classList.contains('purchase-material-name')) {
+            const row = e.target.closest('.purchase-item');
+            if (row) {
+                const sel = row.querySelector('.purchase-material');
+                if (sel && (e.target.value || '').trim()) sel.value = '';
+            }
+        }
+        if (e.target.classList.contains('purchase-material-unit')) {
+            const row = e.target.closest('.purchase-item');
+            if (row) {
+                const sel = row.querySelector('.purchase-material');
+                if (sel && (e.target.value || '').trim()) sel.value = '';
+            }
+        }
+        calculatePurchaseTotal();
+    });
+    purchaseItemsEl.addEventListener('change', (e) => {
+        if (e.target.classList.contains('purchase-material')) {
+            const row = e.target.closest('.purchase-item');
+            if (!row) return;
+            const nameIn = row.querySelector('.purchase-material-name');
+            const unitIn = row.querySelector('.purchase-material-unit');
+            if (nameIn && e.target.value) nameIn.value = '';
+            if (unitIn && e.target.value) unitIn.value = '';
+        }
+    });
 
     document.getElementById('memberModal').addEventListener('click', (e) => {
         if (e.target.id === 'memberModal') closeMemberModal();
@@ -1727,11 +1900,17 @@ function setupEventListeners() {
     document.getElementById('productModal').addEventListener('click', (e) => {
         if (e.target.id === 'productModal') closeProductModal();
     });
+    document.getElementById('productRecipeModal').addEventListener('click', (e) => {
+        if (e.target.id === 'productRecipeModal') closeProductRecipeModal();
+    });
     document.getElementById('memberDetailModal').addEventListener('click', (e) => {
         if (e.target.id === 'memberDetailModal') closeMemberDetailModal();
     });
     document.getElementById('purchaseDetailModal').addEventListener('click', (e) => {
         if (e.target.id === 'purchaseDetailModal') closePurchaseDetailModal();
+    });
+    document.getElementById('stockAdjustModal').addEventListener('click', (e) => {
+        if (e.target.id === 'stockAdjustModal') closeStockAdjustModal();
     });
     const searchInput = document.getElementById('memberSearch');
     if(searchInput) {
@@ -1948,7 +2127,17 @@ function hidePageLoading(tabName) {
 
 // 其他功能占位
 function showNotifications() { showToast('暂无新通知', 'info'); }
-function filterOrders(type) { showToast('筛选功能开发中', 'info'); }
+function filterOrders(type) {
+    currentOrderFilter = ['all', 'today', 'week'].includes(type) ? type : 'all';
+    document.querySelectorAll('.order-filter-btn').forEach(btn => {
+        const isActive = btn.dataset.orderFilter === currentOrderFilter;
+        btn.classList.toggle('bg-amber-500', isActive);
+        btn.classList.toggle('text-white', isActive);
+        btn.classList.toggle('bg-amber-100', !isActive);
+        btn.classList.toggle('text-amber-700', !isActive);
+    });
+    loadOrdersData(1);
+}
 function exportOrders() { showToast('导出功能开发中', 'info'); }
 async function cancelOrder(orderNo) {
     if (!confirm(`确认取消订单 ${orderNo} 吗？`)) return;
@@ -2112,8 +2301,76 @@ function closeMemberDetailModal() {
         document.getElementById('memberDetailModal').classList.add('hidden');
     }, 300);
 }
-function openStockAdjustModal() { showToast('盘点调整功能开发中', 'info'); }
-function adjustStock(materialId) { showToast('库存调整功能开发中', 'info'); }
+function openStockAdjustModal() {
+    if (!window.materialsData || window.materialsData.length === 0) {
+        showToast('请先加载库存数据', 'warning');
+        return;
+    }
+    const select = document.getElementById('stockAdjustMaterial');
+    select.innerHTML = window.materialsData.map(m =>
+        `<option value="${m.id}">${m.name}（当前:${m.stock_quantity}${m.unit || ''}）</option>`
+    ).join('');
+    if (currentAdjustMaterialId) {
+        select.value = String(currentAdjustMaterialId);
+    }
+    document.getElementById('stockAdjustDelta').value = '';
+    document.getElementById('stockAdjustRemark').value = '盘点调整';
+
+    document.getElementById('stockAdjustModal').classList.remove('hidden');
+    setTimeout(() => {
+        document.getElementById('stockAdjustModalContent').classList.remove('scale-95', 'opacity-0');
+        document.getElementById('stockAdjustModalContent').classList.add('scale-100', 'opacity-100');
+    }, 10);
+}
+
+function closeStockAdjustModal() {
+    const content = document.getElementById('stockAdjustModalContent');
+    content.classList.remove('scale-100', 'opacity-100');
+    content.classList.add('scale-95', 'opacity-0');
+    setTimeout(() => {
+        document.getElementById('stockAdjustModal').classList.add('hidden');
+    }, 300);
+}
+
+async function submitStockAdjust() {
+    const materialId = parseInt(document.getElementById('stockAdjustMaterial').value);
+    const deltaQty = parseFloat(document.getElementById('stockAdjustDelta').value);
+    const remark = (document.getElementById('stockAdjustRemark').value || '').trim() || '盘点调整';
+    if (!materialId) {
+        showToast('请选择原料', 'error');
+        return;
+    }
+    if (isNaN(deltaQty) || deltaQty === 0) {
+        showToast('请输入非0数字', 'error');
+        return;
+    }
+    try {
+        const response = await fetchWithToken(`${API_BASE_URL}/api/material/${materialId}/adjust`, {
+            method: 'POST',
+            body: JSON.stringify({
+                delta_qty: deltaQty,
+                remark
+            })
+        });
+        if (!response) return;
+        const result = await response.json();
+        if (!result.success) throw new Error(result.msg || '调整失败');
+        showToast('库存调整成功', 'success');
+        closeStockAdjustModal();
+        loadInventoryData();
+        if (!document.getElementById('dashboard').classList.contains('hidden')) {
+            loadDashboardData();
+        }
+    } catch (error) {
+        console.error('库存调整失败:', error);
+        showToast('库存调整失败: ' + (error.message || ''), 'error');
+    }
+}
+
+function adjustStock(materialId) {
+    currentAdjustMaterialId = materialId;
+    openStockAdjustModal();
+}
 async function confirmInbound(orderId) {
     if (!confirm('确认将该采购单入库吗？')) return;
     try {

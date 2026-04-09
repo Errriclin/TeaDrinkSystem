@@ -13,6 +13,14 @@ public interface SaleOrderManageMapper {
     @Select("SELECT COUNT(1) FROM t_sale_order o")
     Long countAll();
 
+    @Select("SELECT COUNT(1) FROM t_sale_order o " +
+            "WHERE (" +
+            "  #{dateType} = 'all' " +
+            "  OR (#{dateType} = 'today' AND DATE(o.created_at) = CURDATE()) " +
+            "  OR (#{dateType} = 'week' AND YEARWEEK(o.created_at, 1) = YEARWEEK(CURDATE(), 1))" +
+            ")")
+    Long countByDateType(@Param("dateType") String dateType);
+
     @Select("SELECT " +
             "  o.order_no, " +
             "  o.created_at, " +
@@ -27,9 +35,16 @@ public interface SaleOrderManageMapper {
             "FROM t_sale_order o " +
             "LEFT JOIN t_member m ON m.id = o.member_id " +
             "LEFT JOIN t_user u ON u.id = o.cashier_id " +
+            "WHERE (" +
+            "  #{dateType} = 'all' " +
+            "  OR (#{dateType} = 'today' AND DATE(o.created_at) = CURDATE()) " +
+            "  OR (#{dateType} = 'week' AND YEARWEEK(o.created_at, 1) = YEARWEEK(CURDATE(), 1))" +
+            ") " +
             "ORDER BY o.created_at DESC " +
             "LIMIT #{size} OFFSET #{offset}")
-    List<Map<String, Object>> listPage(@Param("offset") int offset, @Param("size") int size);
+    List<Map<String, Object>> listPageByDateType(@Param("offset") int offset,
+                                                  @Param("size") int size,
+                                                  @Param("dateType") String dateType);
 
     @Select("SELECT " +
             "  o.order_no, " +

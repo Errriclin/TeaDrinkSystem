@@ -158,7 +158,7 @@
                         <div>
                             <p class="text-sm text-amber-700/60 mb-1">库存预警</p>
                             <h3 class="text-2xl font-bold text-red-600" id="lowStockCount">0</h3>
-                            <p class="text-xs text-red-500 mt-2 cursor-pointer hover:underline" onclick="switchTab('inventory', document.querySelectorAll('.nav-item')[4])">查看详情 →</p>
+                            <p class="text-xs text-red-500 mt-2 cursor-pointer hover:underline" onclick="switchTab('inventory', document.querySelectorAll('.nav-item')[5])">查看详情 →</p>
                         </div>
                         <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center text-white shadow-lg">
                             <i class="fas fa-exclamation-triangle text-xl"></i>
@@ -195,7 +195,7 @@
                             <p class="text-xs text-amber-600 mt-1">添加库存</p>
                         </button>
 
-                        <button onclick="switchTab('reports', document.querySelectorAll('.nav-item')[6])" class="quick-action rounded-xl p-6 text-center">
+                        <button onclick="switchTab('reports', document.querySelectorAll('.nav-item')[7])" class="quick-action rounded-xl p-6 text-center">
                             <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-2xl">
                                 <i class="fas fa-chart-pie"></i>
                             </div>
@@ -378,12 +378,15 @@
         <!-- 商品管理 -->
         <div id="productManage" class="hidden animate-fade-in">
             <div class="bg-white rounded-xl border border-amber-200 overflow-hidden">
-                <div class="p-6 border-b border-amber-100 flex justify-between items-center">
-                    <div class="flex items-center gap-3">
-                        <h3 class="font-bold text-amber-900 text-lg">商品管理</h3>
-                        <button onclick="loadProductManageData()" class="px-3 py-1 rounded-lg border border-amber-200 text-amber-700 text-sm hover:bg-amber-50">刷新</button>
+                <div class="p-6 border-b border-amber-100 flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center">
+                    <div>
+                        <div class="flex items-center gap-3 flex-wrap">
+                            <h3 class="font-bold text-amber-900 text-lg">商品管理</h3>
+                            <button onclick="loadProductManageData()" class="px-3 py-1 rounded-lg border border-amber-200 text-amber-700 text-sm hover:bg-amber-50">刷新</button>
+                        </div>
+                        <p class="text-xs text-amber-600 mt-1 max-w-xl">上架前请点「配置配方」绑定原料及每份消耗量；新增商品默认下架。</p>
                     </div>
-                    <button onclick="openProductModal()" class="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm hover:bg-amber-600">
+                    <button onclick="openProductModal()" class="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm hover:bg-amber-600 shrink-0">
                         <i class="fas fa-plus mr-2"></i>新增商品
                     </button>
                 </div>
@@ -413,9 +416,9 @@
                     <div class="flex items-center gap-4">
                         <h3 class="font-bold text-amber-900 text-lg">订单列表</h3>
                         <div class="flex gap-2">
-                            <button onclick="filterOrders('all')" class="px-3 py-1 rounded-full bg-amber-500 text-white text-sm">全部</button>
-                            <button onclick="filterOrders('today')" class="px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-sm hover:bg-amber-200">今日</button>
-                            <button onclick="filterOrders('week')" class="px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-sm hover:bg-amber-200">本周</button>
+                            <button onclick="filterOrders('all')" data-order-filter="all" class="order-filter-btn px-3 py-1 rounded-full bg-amber-500 text-white text-sm">全部</button>
+                            <button onclick="filterOrders('today')" data-order-filter="today" class="order-filter-btn px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-sm hover:bg-amber-200">今日</button>
+                            <button onclick="filterOrders('week')" data-order-filter="week" class="order-filter-btn px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-sm hover:bg-amber-200">本周</button>
                         </div>
                     </div>
                     <button onclick="exportOrders()" class="px-4 py-2 border border-amber-300 text-amber-700 rounded-lg text-sm hover:bg-amber-50">
@@ -680,11 +683,13 @@
 
             <div class="space-y-3" id="purchaseItems">
                 <div class="flex gap-3 items-end purchase-item">
-                    <div class="flex-1">
+                    <div class="flex-1 min-w-0">
                         <label class="block text-sm font-medium text-amber-800 mb-2">原料</label>
                         <select class="w-full px-4 py-2 rounded-lg border border-amber-200 focus:outline-none focus:border-amber-500 purchase-material">
                             <option value="">选择原料</option>
                         </select>
+                        <input type="text" class="mt-1 w-full px-3 py-1.5 text-sm rounded-lg border border-amber-100 focus:outline-none focus:border-amber-400 purchase-material-name" placeholder="无选项时可手动输入名称（新建原料）" autocomplete="off">
+                        <input type="text" class="mt-1 w-full px-3 py-1.5 text-sm rounded-lg border border-amber-100 focus:outline-none focus:border-amber-400 purchase-material-unit" placeholder="手动单位，如 g / ml / 包" autocomplete="off">
                     </div>
                     <div class="w-24">
                         <label class="block text-sm font-medium text-amber-800 mb-2">数量</label>
@@ -770,6 +775,30 @@
     </div>
 </div>
 
+<!-- 商品配方模态框 -->
+<div id="productRecipeModal" class="fixed inset-0 modal-backdrop hidden z-50 flex items-center justify-center">
+    <div class="bg-white rounded-2xl w-full max-w-lg mx-4 shadow-2xl transform scale-95 opacity-0 transition-all duration-300" id="productRecipeModalContent">
+        <div class="p-6 border-b border-amber-200 flex justify-between items-center">
+            <h3 class="font-bold text-amber-900 text-xl">配置配方：<span id="productRecipeTitleName" class="font-semibold"></span></h3>
+            <button type="button" onclick="closeProductRecipeModal()" title="关闭" aria-label="关闭" class="text-amber-600 hover:text-amber-800">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <div class="p-6 space-y-3 max-h-[60vh] overflow-y-auto">
+            <p class="text-sm text-amber-700">选择原料并填写<strong>每售出 1 份商品</strong>消耗的数量（与原料库存单位一致）。</p>
+            <input type="hidden" id="productRecipeProductId" value="">
+            <div id="productRecipeRows" class="space-y-2"></div>
+            <button type="button" onclick="addProductRecipeRow()" class="w-full py-2 border-2 border-dashed border-amber-300 text-amber-600 rounded-lg hover:bg-amber-50 text-sm">
+                <i class="fas fa-plus mr-2"></i>添加一行原料
+            </button>
+        </div>
+        <div class="p-6 border-t border-amber-200 flex gap-3">
+            <button type="button" onclick="closeProductRecipeModal()" class="flex-1 py-2 px-4 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 transition-colors">取消</button>
+            <button type="button" onclick="saveProductRecipe()" class="flex-1 py-2 px-4 rounded-lg btn-primary">保存配方</button>
+        </div>
+    </div>
+</div>
+
 <!-- 会员详情模态框 -->
 <div id="memberDetailModal" class="fixed inset-0 modal-backdrop hidden z-50 flex items-center justify-center">
     <div class="bg-white rounded-2xl w-full max-w-2xl mx-4 shadow-2xl transform scale-95 opacity-0 transition-all duration-300" id="memberDetailModalContent">
@@ -796,6 +825,36 @@
         </div>
         <div class="p-6 max-h-[70vh] overflow-y-auto" id="purchaseDetailContent">
             <!-- 动态填充采购详情 -->
+        </div>
+    </div>
+</div>
+
+<!-- 库存盘点调整模态框 -->
+<div id="stockAdjustModal" class="fixed inset-0 modal-backdrop hidden z-50 flex items-center justify-center">
+    <div class="bg-white rounded-2xl w-full max-w-md mx-4 shadow-2xl transform scale-95 opacity-0 transition-all duration-300" id="stockAdjustModalContent">
+        <div class="p-6 border-b border-amber-200 flex justify-between items-center">
+            <h3 class="font-bold text-amber-900 text-xl">库存盘点调整</h3>
+            <button onclick="closeStockAdjustModal()" title="关闭库存调整" aria-label="关闭库存调整" class="text-amber-600 hover:text-amber-800">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-amber-800 mb-2">原料</label>
+                <select id="stockAdjustMaterial" class="w-full px-4 py-2 rounded-lg border border-amber-200 focus:outline-none focus:border-amber-500"></select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-amber-800 mb-2">调整数量（正数增加，负数减少）</label>
+                <input type="number" id="stockAdjustDelta" class="w-full px-4 py-2 rounded-lg border border-amber-200 focus:outline-none focus:border-amber-500" placeholder="例如：10 或 -3" step="0.001">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-amber-800 mb-2">备注</label>
+                <input type="text" id="stockAdjustRemark" class="w-full px-4 py-2 rounded-lg border border-amber-200 focus:outline-none focus:border-amber-500" placeholder="盘点调整">
+            </div>
+        </div>
+        <div class="p-6 border-t border-amber-200 flex gap-3">
+            <button onclick="closeStockAdjustModal()" class="flex-1 py-2 px-4 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 transition-colors">取消</button>
+            <button onclick="submitStockAdjust()" class="flex-1 py-2 px-4 rounded-lg btn-primary">确认调整</button>
         </div>
     </div>
 </div>

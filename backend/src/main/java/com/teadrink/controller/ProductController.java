@@ -1,6 +1,8 @@
 package com.teadrink.controller;
 
 import com.teadrink.common.Result;
+import com.teadrink.dto.ProductRecipeLineResponse;
+import com.teadrink.dto.ProductRecipeSaveRequest;
 import com.teadrink.entity.Product;
 import com.teadrink.service.ProductService;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -53,6 +55,18 @@ public class ProductController {
     public Result<Void> updateStatus(@PathVariable("id") Long id,
                                      @RequestParam("status") Integer status) {
         productService.updateStatus(id, status);
+        return Result.ok(null);
+    }
+
+    @GetMapping("/product/{id}/recipe")
+    public Result<List<ProductRecipeLineResponse>> getRecipe(@PathVariable("id") Long id) {
+        return Result.ok(productService.getRecipe(id));
+    }
+
+    @PutMapping("/product/{id}/recipe")
+    public Result<Void> saveRecipe(@PathVariable("id") Long id,
+                                   @Valid @RequestBody ProductRecipeSaveRequest request) {
+        productService.saveRecipe(id, request);
         return Result.ok(null);
     }
 }
