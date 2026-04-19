@@ -9,5 +9,10 @@ public interface DashboardService {
      * 不能被 Jackson 的 snake_case 策略改写，因此 Controller 会直接返回 Map。
      */
     Map<String, Object> summary();
+
+    /**
+     * 失效工作台汇总缓存（订单创建/取消等事件触发）。
+     */
+    void evictSummaryCache();
 }
 

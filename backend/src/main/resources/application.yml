@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: teadrink-backend
+  redis:
+    host: 127.0.0.1
+    port: 6379
+    timeout: 3000ms
   datasource:
     url: jdbc:mysql://127.0.0.1:3306/teadrink_system?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8
     username: root

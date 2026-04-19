@@ -1858,7 +1858,71 @@ function calculatePurchaseTotal() {
     document.getElementById('purchaseTotal').textContent = `¥${total.toFixed(2)}`;
 }
 
+// ==========================================
+// 顶栏搜索：手机号 -> 会员详情；订单号 -> 订单详情
+// ==========================================
+function setupGlobalSearch() {
+    const input = document.getElementById('globalSearchInput');
+    const btn = document.getElementById('globalSearchBtn');
+    if (!input) return;
+
+    const trigger = () => handleGlobalSearch(input.value);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            trigger();
+        }
+    });
+    if (btn) btn.addEventListener('click', trigger);
+}
+
+async function handleGlobalSearch(rawKeyword) {
+    const keyword = (rawKeyword || '').trim();
+    if (!keyword) {
+        showToast('请输入手机号或订单号', 'info');
+        return;
+    }
+
+    // 规则：纯 11 位数字 + 1[3-9] 开头 -> 会员手机号
+    if (/^1[3-9]\d{9}$/.test(keyword)) {
+        await searchMemberByPhone(keyword);
+        return;
+    }
+
+    // 规则：以 SO 开头（当前订单号形如 SOyyyyMMddHHmmss+4位随机）
+    if (/^SO\d{4,}$/i.test(keyword)) {
+        await viewOrderDetail(keyword.toUpperCase());
+        return;
+    }
+
+    showToast('只支持 11 位手机号或 SO 开头的订单号', 'warning');
+}
+
+async function searchMemberByPhone(phone) {
+    try {
+        const response = await fetchWithToken(`${API_BASE_URL}/api/member?phone=${encodeURIComponent(phone)}`);
+        if (!response) return;
+        if (response.status === 404) {
+            showToast('未找到该手机号对应的会员', 'warning');
+            return;
+        }
+        const result = await response.json();
+        if (!result.success) throw new Error(result.msg || '查询失败');
+        const member = result.data;
+        if (!member || !member.id) {
+            showToast('未找到该手机号对应的会员', 'warning');
+            return;
+        }
+        await viewMemberDetail(member.id);
+    } catch (error) {
+        console.error('按手机号搜索会员失败:', error);
+        showToast('查询失败: ' + (error.message || ''), 'error');
+    }
+}
+
 function setupEventListeners() {
+    setupGlobalSearch();
+
     const purchaseItemsEl = document.getElementById('purchaseItems');
     purchaseItemsEl.addEventListener('input', (e) => {
         if (e.target.classList.contains('purchase-material-name')) {

@@ -65,7 +65,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public void register(RegisterRequest request) {
+    public LoginResponse register(RegisterRequest request) {
         if (request == null || !StringUtils.hasText(request.getPhone()) || !StringUtils.hasText(request.getPassword())) {
             throw new BusinessException("手机号和密码不能为空");
         }
@@ -76,10 +76,16 @@ public class AuthServiceImpl implements AuthService {
         }
         User u = new User();
         u.setPhone(phone);
-        u.setPassword(request.getPassword());
+        u.setPassword(BCrypt.hashpw(request.getPassword(), BCrypt.gensalt()));
         u.setName("");
         u.setRole("CASHIER");
         u.setStatus(1);
         userMapper.insert(u);
+        if (u.getId() == null) {
+            throw new BusinessException("注册失败，请稍后重试");
+        }
+        String token = tokenService.createToken(u.getId());
+        String redirectUrl = dashboardPath + "?token=" + token;
+        return LoginResponse.ok("注册成功", token, redirectUrl);
     }
 }

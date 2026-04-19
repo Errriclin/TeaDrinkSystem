@@ -382,7 +382,7 @@
                     showToast(result.data.msg || '登录成功', 'success');
 
                     setTimeout(() => {
-                        // redirectUrl 已经是 /api/dashboard?token=xxx
+                        // redirectUrl 为 app.auth.dashboard-path，如 /html/Mainwindow.html?token=xxx
                         window.location.href = result.data.redirectUrl;
                     }, 500);
                 } else {

@@ -48,16 +48,14 @@ public class AuthController {
     }
 
     /**
-     * 与 Register.html 一致：成功 HTTP 200 + JSON；失败 HTTP 400 + { "message": "..." }
+     * 与 Register.html 一致：成功 HTTP 200 + LoginResponse（success、msg、token、redirectUrl）；
+     * 失败 HTTP 400 + { "message": "..." }
      */
     @PostMapping("/register")
-    public ResponseEntity<Map<String, Object>> register(@RequestBody RegisterRequest request) {
+    public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
         try {
-            authService.register(request);
-            Map<String, Object> body = new LinkedHashMap<>();
-            body.put("success", true);
-            body.put("msg", "注册成功");
-            return ResponseEntity.ok(body);
+            LoginResponse resp = authService.register(request);
+            return ResponseEntity.ok(resp);
         } catch (BusinessException e) {
             Map<String, Object> err = new LinkedHashMap<>();
             err.put("message", e.getMessage());

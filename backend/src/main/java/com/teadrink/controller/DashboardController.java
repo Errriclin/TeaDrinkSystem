@@ -50,12 +50,11 @@ public class DashboardController {
     }
 
     /**
-     * 直接查询视图 v_product_rank
+     * 商品销售排行（limit=10 时走 Redis 缓存）
      */
     @GetMapping("/v_product_rank")
-    public Result<List<Map<String, Object>>> productRank(@RequestParam(required = false, defaultValue = "5") int limit) {
-        int safeLimit = limit <= 0 ? 5 : Math.min(limit, 50);
-        return Result.ok(reportMapper.productRank(safeLimit));
+    public Result<List<Map<String, Object>>> productRank(@RequestParam(required = false, defaultValue = "10") int limit) {
+        return Result.ok(reportService.productRank(limit));
     }
 
     /**

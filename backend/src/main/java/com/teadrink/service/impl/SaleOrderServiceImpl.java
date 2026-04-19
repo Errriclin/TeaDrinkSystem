@@ -18,6 +18,8 @@ import com.teadrink.mapper.MemberMapper;
 import com.teadrink.mapper.ProductMaterialMapper;
 import com.teadrink.mapper.SaleOrderItemMapper;
 import com.teadrink.mapper.SaleOrderMapper;
+import com.teadrink.service.DashboardService;
+import com.teadrink.service.ReportService;
 import com.teadrink.service.SaleOrderService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,6 +51,10 @@ public class SaleOrderServiceImpl implements SaleOrderService {
     private MemberMapper memberMapper;
     @Resource
     private MemberAccountLogMapper memberAccountLogMapper;
+    @Resource
+    private ReportService reportService;
+    @Resource
+    private DashboardService dashboardService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -158,6 +164,9 @@ public class SaleOrderServiceImpl implements SaleOrderService {
             memberMapper.updateById(member);
         }
 
+        reportService.evictProductRankCache();
+        reportService.evictRevenueTrendCache();
+        dashboardService.evictSummaryCache();
         return new SaleOrderCreateResponse(order.getOrderNo());
     }
 
@@ -260,6 +269,9 @@ public class SaleOrderServiceImpl implements SaleOrderService {
 
         order.setStatus(0);
         saleOrderMapper.updateById(order);
+        reportService.evictProductRankCache();
+        reportService.evictRevenueTrendCache();
+        dashboardService.evictSummaryCache();
     }
 
     private Map<Long, BigDecimal> calcMaterialConsume(List<SaleOrderCreateRequestItem> items) {

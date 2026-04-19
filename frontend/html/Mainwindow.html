@@ -92,9 +92,13 @@
 
         <div class="flex items-center gap-4">
             <div class="relative">
-                <input type="text" placeholder="搜索订单、会员、商品..."
+                <input id="globalSearchInput" type="text"
+                       placeholder="输入 11 位手机号或订单号后回车"
+                       autocomplete="off"
                        class="pl-10 pr-4 py-2 w-64 rounded-lg border border-amber-200 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-sm bg-amber-50/30">
                 <i class="fas fa-search absolute left-3 top-2.5 text-amber-400"></i>
+                <button id="globalSearchBtn" type="button"
+                        class="absolute right-1 top-1 bottom-1 px-2 text-xs text-amber-600 hover:text-amber-800">搜索</button>
             </div>
             <button class="relative p-2 text-amber-600 hover:bg-amber-100 rounded-lg transition-colors" onclick="showNotifications()">
                 <i class="fas fa-bell text-xl"></i>
