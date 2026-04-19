@@ -53,7 +53,7 @@ public class MysqlInf implements AutoCloseable {
 
     public static void main(String[] args) {
         // try-with-resources 自动调用析构函数，不会内存泄漏
-        try (MysqlInf db = new MysqlInf("192.168.142.134", 3306, "root", "123456")) {
+        try (MysqlInf db = new MysqlInf("", 3306, "root", "123456")) {
 
             System.out.println("已连接: " + db.isConnected());
 
