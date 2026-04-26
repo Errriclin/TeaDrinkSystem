@@ -48,7 +48,7 @@ public class MemberController {
 
     /**
      * 新增会员：POST /api/member
-     * 前端提交：{phone,name,level,balance}
+     * 前端提交：{phone,name,balance}；等级由开卡时「初始储值」按单次金额规则自动计算
      */
     @PostMapping("/member")
     public Result<Member> create(@Valid @RequestBody Member member) {

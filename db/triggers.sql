@@ -12,21 +12,23 @@ SET NAMES utf8mb4;
 DROP TRIGGER IF EXISTS trg_material_low_stock_after_update;
 DROP TRIGGER IF EXISTS trg_material_low_stock_after_insert;
 
--- 更新库存后：若低于安全库存则插入一条预警（条件不满足时 SELECT 0 行，不插入）
+-- 更新库存后：若达到或低于安全库存则插入一条预警（与查询端 is_low 条件一致，条件不满足时 SELECT 0 行，不插入）
 CREATE TRIGGER trg_material_low_stock_after_update
 AFTER UPDATE ON t_material
 FOR EACH ROW
 INSERT INTO t_stock_warn (material_id, current_qty, safe_qty, warn_time, handled)
 SELECT NEW.id, NEW.stock_quantity, NEW.safety_stock, NOW(), 0
-WHERE NEW.stock_quantity < NEW.safety_stock;
+WHERE (NEW.safety_stock > 0 AND NEW.stock_quantity <= NEW.safety_stock)
+   OR (NEW.safety_stock = 0 AND NEW.stock_quantity <= 0);
 
--- 新增原料：若初始库存即低于安全库存，同样插入预警
+-- 新增原料：若初始库存即达到或低于安全线，同样插入预警
 CREATE TRIGGER trg_material_low_stock_after_insert
 AFTER INSERT ON t_material
 FOR EACH ROW
 INSERT INTO t_stock_warn (material_id, current_qty, safe_qty, warn_time, handled)
 SELECT NEW.id, NEW.stock_quantity, NEW.safety_stock, NOW(), 0
-WHERE NEW.stock_quantity < NEW.safety_stock;
+WHERE (NEW.safety_stock > 0 AND NEW.stock_quantity <= NEW.safety_stock)
+   OR (NEW.safety_stock = 0 AND NEW.stock_quantity <= 0);
 
 -- 说明：
 -- 1) 每次 UPDATE 后只要仍低于安全库存都会插入一条预警，便于课程演示；

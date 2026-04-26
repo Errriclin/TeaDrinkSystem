@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
-import javax.validation.Valid;
 import java.util.List;
 import java.util.Map;
 
@@ -47,8 +46,11 @@ public class InventoryController {
      */
     @PostMapping("/material/{id}/adjust")
     public Result<Void> adjust(@PathVariable("id") Long materialId,
-                               @Valid @RequestBody StockAdjustRequest request) {
-        inventoryService.adjustStock(materialId, request.getDeltaQty(), request.getRemark());
+                               @RequestBody(required = false) StockAdjustRequest request) {
+        if (request == null) {
+            request = new StockAdjustRequest();
+        }
+        inventoryService.adjustStock(materialId, request);
         return Result.ok(null);
     }
 }

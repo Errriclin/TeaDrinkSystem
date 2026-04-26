@@ -678,6 +678,9 @@
                     if (result.data.token) {
                         localStorage.setItem('token', result.data.token);
                     }
+                    if (result.data.role) {
+                        localStorage.setItem('role', result.data.role);
+                    }
 
                     setTimeout(() => {
                         if (result.data.redirectUrl) {

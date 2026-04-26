@@ -176,7 +176,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         m.setName(name);
         m.setUnit(unit);
         m.setStockQuantity(BigDecimal.ZERO);
-        m.setSafetyStock(BigDecimal.ZERO);
+        m.setSafetyStock(new BigDecimal("100"));
         m.setStatus(1);
         m.setUpdatedAt(LocalDateTime.now());
         materialMapper.insert(m);

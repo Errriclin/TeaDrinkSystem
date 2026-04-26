@@ -21,6 +21,17 @@ let tabSwitchTimer = null;
 let currentTab = null;
 let currentOrderFilter = 'all';
 let currentAdjustMaterialId = null;
+let rechargeTargetMemberId = null;
+
+const ROLE_ADMIN = 'ADMIN';
+const ROLE_CASHIER = 'CASHIER';
+const ROLE_WAREHOUSE = 'WAREHOUSE';
+
+const ROLE_TAB_PERMISSIONS = {
+    [ROLE_ADMIN]: ['dashboard', 'pos', 'orders', 'productManage', 'members', 'inventory', 'purchase', 'reports'],
+    [ROLE_CASHIER]: ['dashboard', 'pos', 'orders', 'members', 'inventory'],
+    [ROLE_WAREHOUSE]: ['dashboard', 'inventory', 'purchase']
+};
 
 function getToken() {
     // 先检查 localStorage
@@ -43,6 +54,53 @@ function getToken() {
 
     console.log('No token found!');
     return null;
+}
+
+function getRole() {
+    return (localStorage.getItem('role') || ROLE_CASHIER).toUpperCase();
+}
+
+function canManageInventory() {
+    const r = getRole();
+    return r === ROLE_ADMIN || r === ROLE_WAREHOUSE;
+}
+
+/** 与后端 is_low(0/1) 或布尔一致，避免类型差异导致不预警 */
+function materialIsLow(m) {
+    if (!m) return false;
+    const v = m.is_low;
+    return v === 1 || v === true || v === '1';
+}
+
+function getAllowedTabs() {
+    return ROLE_TAB_PERMISSIONS[getRole()] || ROLE_TAB_PERMISSIONS[ROLE_CASHIER];
+}
+
+function hasTabPermission(tabName) {
+    return getAllowedTabs().includes(tabName);
+}
+
+function getDefaultTab() {
+    return getAllowedTabs()[0] || 'dashboard';
+}
+
+function applyRolePermissions() {
+    const allowedTabs = getAllowedTabs();
+    document.querySelectorAll('.nav-item').forEach(item => {
+        const onclick = item.getAttribute('onclick') || '';
+        const match = onclick.match(/switchTab\('([^']+)'/);
+        if (!match) return;
+        item.classList.toggle('hidden', !allowedTabs.includes(match[1]));
+    });
+    applyInventoryUiPermission();
+}
+
+function applyInventoryUiPermission() {
+    const btn = document.getElementById('btnInventoryAdjust');
+    if (btn) btn.classList.toggle('hidden', !canManageInventory());
+    if (window.materialsData && document.getElementById('inventory') && !document.getElementById('inventory').classList.contains('hidden')) {
+        renderInventoryTable(window.materialsData);
+    }
 }
 
 // 带 token 的 fetch 封装
@@ -74,8 +132,15 @@ async function fetchWithToken(url, options = {}) {
         if (response.status === 401) {
             console.error('401 Unauthorized');
             localStorage.removeItem('token');
+            localStorage.removeItem('role');
             window.location.href = '/html/Login.html';
             throw new Error('Unauthorized');
+        }
+
+        if (response.status === 403) {
+            console.error('403 Forbidden:', url);
+            showToast('无权限访问该功能', 'warning');
+            return null;
         }
 
         return response;
@@ -104,6 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     console.log('Token valid, initializing dashboard...');
+    applyRolePermissions();
     initDashboard();
     setupEventListeners();
 });
@@ -112,6 +178,11 @@ document.addEventListener('DOMContentLoaded', () => {
 // 页面切换
 // ==========================================
 function switchTab(tabName, navElement) {
+    if (!hasTabPermission(tabName)) {
+        showToast('无权限访问该功能', 'warning');
+        return;
+    }
+
     // 如果已经在该页面，不重复加载
     if (currentTab === tabName) {
         console.log('Already on', tabName, 'skipping');
@@ -149,7 +220,11 @@ function switchTab(tabName, navElement) {
         'inventory': '库存管理', 'purchase': '采购管理',
         'reports': '营业报表'
     };
-    document.getElementById('pageTitle').textContent = titles[tabName] || '工作台';
+    let pageTitle = titles[tabName] || '工作台';
+    if (tabName === 'inventory' && !canManageInventory()) {
+        pageTitle = '库存查询';
+    }
+    document.getElementById('pageTitle').textContent = pageTitle;
 
     // 7. 延时 300ms 再加载数据，避免快速切换导致的问题
     tabSwitchTimer = setTimeout(() => {
@@ -1149,7 +1224,6 @@ function searchMembers() {
 async function submitNewMember() {
     const phone = document.getElementById('newMemberPhone').value;
     const name = document.getElementById('newMemberName').value;
-    const level = parseInt(document.getElementById('newMemberLevel').value);
     const balance = parseFloat(document.getElementById('newMemberBalance').value) || 0;
 
     if (!phone || phone.length !== 11) {
@@ -1158,17 +1232,19 @@ async function submitNewMember() {
     }
 
     try {
-        // API: POST /api/member
+        // API: POST /api/member（等级由后端按初始储值计算）
         const response = await fetchWithToken(`${API_BASE_URL}/api/member`, {
             method: 'POST',
-            body: JSON.stringify({ phone, name, level, balance })
+            body: JSON.stringify({ phone, name, balance })
         });
         if(!response) return;
 
         const result = await response.json();
         if(!result.success) throw new Error(result.msg);
 
-        showToast('会员添加成功', 'success');
+        const lv = result.data && result.data.level;
+        const lvText = getMemberLevelText(lv);
+        showToast(`会员添加成功，开卡等级：${lvText}`, 'success');
         closeMemberModal();
         loadMembersData();
     } catch (error) {
@@ -1877,6 +1953,11 @@ function setupGlobalSearch() {
 }
 
 async function handleGlobalSearch(rawKeyword) {
+    if (getRole() === ROLE_WAREHOUSE) {
+        showToast('仓管账号不能搜索会员或订单', 'warning');
+        return;
+    }
+
     const keyword = (rawKeyword || '').trim();
     if (!keyword) {
         showToast('请输入手机号或订单号', 'info');
@@ -1976,6 +2057,12 @@ function setupEventListeners() {
     document.getElementById('stockAdjustModal').addEventListener('click', (e) => {
         if (e.target.id === 'stockAdjustModal') closeStockAdjustModal();
     });
+    document.getElementById('confirmLogoutModal').addEventListener('click', (e) => {
+        if (e.target.id === 'confirmLogoutModal') closeConfirmLogoutModal();
+    });
+    document.getElementById('rechargeMemberModal').addEventListener('click', (e) => {
+        if (e.target.id === 'rechargeMemberModal') closeRechargeMemberModal();
+    });
     const searchInput = document.getElementById('memberSearch');
     if(searchInput) {
         searchInput.addEventListener('input', debounce(searchMembers, 300));
@@ -1994,10 +2081,95 @@ function debounce(func, wait) {
     };
 }
 
-function logout() {
-    if (confirm('确定要退出登录吗？')) {
-        localStorage.removeItem('token');
-        window.location.href = '/html/Login.html';
+function openConfirmLogoutModal() {
+    const mod = document.getElementById('confirmLogoutModal');
+    const content = document.getElementById('confirmLogoutModalContent');
+    if (!mod || !content) return;
+    mod.classList.remove('hidden');
+    setTimeout(() => {
+        content.classList.remove('scale-95', 'opacity-0');
+        content.classList.add('scale-100', 'opacity-100');
+    }, 10);
+}
+
+function closeConfirmLogoutModal() {
+    const mod = document.getElementById('confirmLogoutModal');
+    const content = document.getElementById('confirmLogoutModalContent');
+    if (!content || !mod) return;
+    content.classList.remove('scale-100', 'opacity-100');
+    content.classList.add('scale-95', 'opacity-0');
+    setTimeout(() => {
+        mod.classList.add('hidden');
+    }, 300);
+}
+
+function performLogout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('role');
+    window.location.href = '/html/Login.html';
+}
+
+function openRechargeMemberModal(memberId) {
+    rechargeTargetMemberId = memberId;
+    const inp = document.getElementById('rechargeMemberAmount');
+    if (inp) inp.value = '';
+    const mod = document.getElementById('rechargeMemberModal');
+    const content = document.getElementById('rechargeMemberModalContent');
+    if (!mod || !content) return;
+    mod.classList.remove('hidden');
+    setTimeout(() => {
+        content.classList.remove('scale-95', 'opacity-0');
+        content.classList.add('scale-100', 'opacity-100');
+    }, 10);
+    setTimeout(() => {
+        if (inp) inp.focus();
+    }, 50);
+}
+
+function closeRechargeMemberModal() {
+    rechargeTargetMemberId = null;
+    const mod = document.getElementById('rechargeMemberModal');
+    const content = document.getElementById('rechargeMemberModalContent');
+    if (!content || !mod) return;
+    content.classList.remove('scale-100', 'opacity-100');
+    content.classList.add('scale-95', 'opacity-0');
+    setTimeout(() => {
+        mod.classList.add('hidden');
+    }, 300);
+}
+
+async function submitRechargeMemberModal() {
+    if (!rechargeTargetMemberId) {
+        showToast('会员信息无效', 'error');
+        return;
+    }
+    const amountText = (document.getElementById('rechargeMemberAmount').value || '').trim();
+    const amount = parseFloat(amountText);
+    if (!amount || amount <= 0) {
+        showToast('请输入大于0的金额', 'error');
+        return;
+    }
+    try {
+        const response = await fetchWithToken(`${API_BASE_URL}/api/member/${rechargeTargetMemberId}/recharge`, {
+            method: 'POST',
+            body: JSON.stringify({
+                amount: amount,
+                remark: '前端会员列表充值'
+            })
+        });
+        if (!response) return;
+        const result = await response.json();
+        if (!result.success) throw new Error(result.msg || '充值失败');
+        const m = result.data;
+        const msg = m && m.level
+            ? `充值成功，当前为${getMemberLevelText(m.level)}`
+            : '充值成功';
+        showToast(msg, 'success');
+        closeRechargeMemberModal();
+        loadMembersData();
+    } catch (error) {
+        console.error('会员充值失败:', error);
+        showToast('充值失败: ' + (error.message || ''), 'error');
     }
 }
 
@@ -2065,7 +2237,7 @@ async function loadInventoryData(signal = null) {
         renderInventoryLogs(logs);
 
         // 更新工作台预警数量
-        const lowStockCount = window.materialsData.filter(m => m.is_low).length;
+        const lowStockCount = window.materialsData.filter(materialIsLow).length;
         document.getElementById('lowStockCount').textContent = lowStockCount;
 
     } catch(error) {
@@ -2085,7 +2257,7 @@ function renderInventoryTable(materials) {
     }
 
     tbody.innerHTML = materials.map(material => {
-        const isLow = material.is_low;
+        const isLow = materialIsLow(material);
         return `
                 <tr class="${isLow ? 'bg-red-50' : ''}">
                     <td class="py-4 px-6 text-sm text-amber-700">#${material.id}</td>
@@ -2103,7 +2275,9 @@ function renderInventoryTable(materials) {
                     </td>
                     <td class="py-4 px-6 text-sm text-gray-500">${material.updated_at}</td>
                     <td class="py-4 px-6">
-                        <button onclick="adjustStock(${material.id})" class="text-amber-600 hover:text-amber-800 text-sm font-medium">调整</button>
+                        ${canManageInventory()
+                            ? `<button onclick="adjustStock(${material.id})" class="text-amber-600 hover:text-amber-800 text-sm font-medium">调整</button>`
+                            : '<span class="text-gray-400 text-sm">—</span>'}
                     </td>
                 </tr>
             `;
@@ -2138,7 +2312,7 @@ function renderInventoryLogs(logs) {
 function showLowStock() {
     if(!window.materialsData) return;
 
-    const lowStockMaterials = window.materialsData.filter(m => m.is_low);
+    const lowStockMaterials = window.materialsData.filter(materialIsLow);
     renderInventoryTable(lowStockMaterials);
 
     // 添加返回按钮
@@ -2227,31 +2401,8 @@ async function cancelOrder(orderNo) {
         showToast('取消订单失败: ' + (error.message || ''), 'error');
     }
 }
-async function rechargeMember(memberId) {
-    const amountText = prompt('请输入充值金额（元）');
-    if (amountText === null) return;
-    const amount = parseFloat(amountText);
-    if (!amount || amount <= 0) {
-        showToast('请输入大于0的金额', 'error');
-        return;
-    }
-    try {
-        const response = await fetchWithToken(`${API_BASE_URL}/api/member/${memberId}/recharge`, {
-            method: 'POST',
-            body: JSON.stringify({
-                amount: amount,
-                remark: '前端会员列表充值'
-            })
-        });
-        if (!response) return;
-        const result = await response.json();
-        if (!result.success) throw new Error(result.msg || '充值失败');
-        showToast('充值成功', 'success');
-        loadMembersData();
-    } catch (error) {
-        console.error('会员充值失败:', error);
-        showToast('充值失败: ' + (error.message || ''), 'error');
-    }
+function rechargeMember(memberId) {
+    openRechargeMemberModal(memberId);
 }
 async function viewMemberDetail(memberId) {
     try {
@@ -2365,7 +2516,29 @@ function closeMemberDetailModal() {
         document.getElementById('memberDetailModal').classList.add('hidden');
     }, 300);
 }
+function syncStockAdjustFormFromSelection() {
+    const select = document.getElementById('stockAdjustMaterial');
+    const input = document.getElementById('stockAdjustSafety');
+    if (!select || !input) return;
+    const id = parseInt(select.value, 10);
+    const m = window.materialsData && window.materialsData.find(x => Number(x.id) === id);
+    if (m) {
+        const s = m.safety_stock;
+        if (s != null && s !== '') {
+            input.value = s;
+        } else {
+            input.value = '100';
+        }
+    } else {
+        input.value = '';
+    }
+}
+
 function openStockAdjustModal() {
+    if (!canManageInventory()) {
+        showToast('无权限进行库存调整', 'warning');
+        return;
+    }
     if (!window.materialsData || window.materialsData.length === 0) {
         showToast('请先加载库存数据', 'warning');
         return;
@@ -2377,8 +2550,10 @@ function openStockAdjustModal() {
     if (currentAdjustMaterialId) {
         select.value = String(currentAdjustMaterialId);
     }
+    select.onchange = syncStockAdjustFormFromSelection;
     document.getElementById('stockAdjustDelta').value = '';
     document.getElementById('stockAdjustRemark').value = '盘点调整';
+    syncStockAdjustFormFromSelection();
 
     document.getElementById('stockAdjustModal').classList.remove('hidden');
     setTimeout(() => {
@@ -2397,24 +2572,47 @@ function closeStockAdjustModal() {
 }
 
 async function submitStockAdjust() {
-    const materialId = parseInt(document.getElementById('stockAdjustMaterial').value);
-    const deltaQty = parseFloat(document.getElementById('stockAdjustDelta').value);
+    if (!canManageInventory()) {
+        showToast('无权限进行库存调整', 'warning');
+        return;
+    }
+    const materialId = parseInt(document.getElementById('stockAdjustMaterial').value, 10);
     const remark = (document.getElementById('stockAdjustRemark').value || '').trim() || '盘点调整';
     if (!materialId) {
         showToast('请选择原料', 'error');
         return;
     }
-    if (isNaN(deltaQty) || deltaQty === 0) {
-        showToast('请输入非0数字', 'error');
+    const deltaRaw = (document.getElementById('stockAdjustDelta').value || '').trim();
+    let deltaQty = null;
+    if (deltaRaw !== '') {
+        const d = parseFloat(deltaRaw);
+        if (isNaN(d) || d === 0) {
+            showToast('调整数量需为非 0 数字，或留空不调整库存', 'error');
+            return;
+        }
+        deltaQty = d;
+    }
+    const safetyRaw = (document.getElementById('stockAdjustSafety').value || '').trim();
+    let safetyStock = null;
+    if (safetyRaw !== '') {
+        const s = parseFloat(safetyRaw);
+        if (isNaN(s) || s < 0) {
+            showToast('安全库存需为不小于 0 的数字，或留空不修改', 'error');
+            return;
+        }
+        safetyStock = s;
+    }
+    if (deltaQty == null && safetyStock == null) {
+        showToast('请至少调整库存或修改安全库存中的一项', 'error');
         return;
     }
+    const payload = { remark };
+    if (deltaQty != null) payload.delta_qty = deltaQty;
+    if (safetyStock != null) payload.safety_stock = safetyStock;
     try {
         const response = await fetchWithToken(`${API_BASE_URL}/api/material/${materialId}/adjust`, {
             method: 'POST',
-            body: JSON.stringify({
-                delta_qty: deltaQty,
-                remark
-            })
+            body: JSON.stringify(payload)
         });
         if (!response) return;
         const result = await response.json();
@@ -2432,6 +2630,10 @@ async function submitStockAdjust() {
 }
 
 function adjustStock(materialId) {
+    if (!canManageInventory()) {
+        showToast('无权限进行库存调整', 'warning');
+        return;
+    }
     currentAdjustMaterialId = materialId;
     openStockAdjustModal();
 }

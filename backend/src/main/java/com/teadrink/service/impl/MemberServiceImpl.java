@@ -21,6 +21,11 @@ import java.util.Map;
 @Service
 public class MemberServiceImpl implements MemberService {
 
+    /** 单次充值/开卡储值 &lt; 500：普通会员 */
+    private static final BigDecimal TIER_SILVER_MIN = new BigDecimal("500");
+    /** 单次 500～1000（含）：银卡；&gt;1000：金卡 */
+    private static final BigDecimal TIER_GOLD_MIN = new BigDecimal("1000");
+
     @Resource
     private MemberMapper memberMapper;
     @Resource
@@ -46,18 +51,32 @@ public class MemberServiceImpl implements MemberService {
         return memberMapper.selectList(q);
     }
 
+    /**
+     * 按单次实付金额划分等级：&lt;500 普通(1)；500～1000(含) 银卡(2)；&gt;1000 金卡(3)。
+     */
+    private int levelFromSingleRechargeAmount(BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            return 1;
+        }
+        if (amount.compareTo(TIER_SILVER_MIN) < 0) {
+            return 1;
+        }
+        if (amount.compareTo(TIER_GOLD_MIN) <= 0) {
+            return 2;
+        }
+        return 3;
+    }
+
     @Override
     public Member create(Member member) {
         if (member == null) {
             return null;
         }
-        // 最小化兜底：前端会传 phone/name/level/balance
-        if (member.getLevel() == null) {
-            member.setLevel(1);
-        }
         if (member.getBalance() == null) {
             member.setBalance(BigDecimal.ZERO);
         }
+        // 开卡：等级由「本次初始储值」决定（与人工选择无关，避免与实付金额不一致）
+        member.setLevel(levelFromSingleRechargeAmount(member.getBalance()));
         if (member.getPoints() == null) {
             member.setPoints(0);
         }
@@ -103,6 +122,8 @@ public class MemberServiceImpl implements MemberService {
         BigDecimal before = member.getBalance() == null ? BigDecimal.ZERO : member.getBalance();
         BigDecimal after = before.add(amount);
         member.setBalance(after);
+        int currentLevel = member.getLevel() == null ? 1 : member.getLevel();
+        member.setLevel(Math.max(currentLevel, levelFromSingleRechargeAmount(amount)));
         memberMapper.updateById(member);
 
         MemberAccountLog log = new MemberAccountLog();

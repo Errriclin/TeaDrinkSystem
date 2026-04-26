@@ -27,7 +27,10 @@ public interface DashboardMapper {
     @Select("SELECT COUNT(1) FROM t_member m")
     Integer countTotalMembers();
 
-    @Select("SELECT COUNT(1) FROM t_material m WHERE m.status = 1 AND m.stock_quantity < m.safety_stock")
+    @Select("SELECT COUNT(1) FROM t_material m WHERE m.status = 1 AND ( " +
+            "(m.safety_stock > 0 AND m.stock_quantity <= m.safety_stock) " +
+            "OR (m.safety_stock = 0 AND m.stock_quantity <= 0) " +
+            ")")
     Integer countLowStockMaterials();
 }
 

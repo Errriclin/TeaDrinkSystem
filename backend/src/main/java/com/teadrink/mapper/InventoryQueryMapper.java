@@ -12,10 +12,15 @@ public interface InventoryQueryMapper {
 
     /**
      * 库存列表（带 is_low）
+     * 规则：启用时，(1) 已设安全库存(大于0) 则 当前库存小于等于安全库存 即预警（含刚好等于线）；
+     * (2) 安全库存为 0 视为未设阈值，仅当库存小于等于 0 时标为需关注。
      */
     @Select("SELECT " +
             "  m.id, m.name, m.unit, m.stock_quantity, m.safety_stock, m.status, m.updated_at, " +
-            "  CASE WHEN m.status = 1 AND m.stock_quantity < m.safety_stock THEN 1 ELSE 0 END AS is_low " +
+            "  CASE WHEN m.status = 1 AND ( " +
+            "    (m.safety_stock > 0 AND m.stock_quantity <= m.safety_stock) " +
+            "    OR (m.safety_stock = 0 AND m.stock_quantity <= 0) " +
+            "  ) THEN 1 ELSE 0 END AS is_low " +
             "FROM t_material m " +
             "ORDER BY m.id ASC")
     List<Map<String, Object>> listMaterialsWithLowFlag();

@@ -44,7 +44,7 @@ public class AuthServiceImpl implements AuthService {
         }
         String token = tokenService.createToken(user.getId());
         String redirectUrl = dashboardPath + "?token=" + token;
-        return LoginResponse.ok("登录成功", token, redirectUrl);
+        return LoginResponse.ok("登录成功", token, normalizeRole(user.getRole()), redirectUrl);
     }
 
     /**
@@ -86,6 +86,10 @@ public class AuthServiceImpl implements AuthService {
         }
         String token = tokenService.createToken(u.getId());
         String redirectUrl = dashboardPath + "?token=" + token;
-        return LoginResponse.ok("注册成功", token, redirectUrl);
+        return LoginResponse.ok("注册成功", token, normalizeRole(u.getRole()), redirectUrl);
+    }
+
+    private String normalizeRole(String role) {
+        return StringUtils.hasText(role) ? role.trim().toUpperCase() : "CASHIER";
     }
 }

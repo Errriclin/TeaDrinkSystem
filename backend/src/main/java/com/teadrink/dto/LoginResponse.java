@@ -6,7 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * 与 Login.html 一致：success、msg、token、redirectUrl（全局 snake_case 下 redirectUrl 需显式指定）。
+ * 与 Login.html 一致：success、msg、token、role、redirectUrl（全局 snake_case 下 redirectUrl 需显式指定）。
  */
 @Data
 @NoArgsConstructor
@@ -16,15 +16,16 @@ public class LoginResponse {
     private boolean success;
     private String msg;
     private String token;
+    private String role;
 
     @JsonProperty("redirectUrl")
     private String redirectUrl;
 
     public static LoginResponse fail(String msg) {
-        return new LoginResponse(false, msg, null, null);
+        return new LoginResponse(false, msg, null, null, null);
     }
 
-    public static LoginResponse ok(String msg, String token, String redirectUrl) {
-        return new LoginResponse(true, msg, token, redirectUrl);
+    public static LoginResponse ok(String msg, String token, String role, String redirectUrl) {
+        return new LoginResponse(true, msg, token, role, redirectUrl);
     }
 }

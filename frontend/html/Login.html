@@ -328,6 +328,9 @@
                 if (data.success && data.token) {
                     localStorage.setItem('token', data.token);
                 }
+                if (data.success && data.role) {
+                    localStorage.setItem('role', data.role);
+                }
 
                 return {
                     success: response.ok && data.success,
